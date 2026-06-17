@@ -1,79 +1,85 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
-# --- App Configuration ---
+# --- Page Configuration ---
 st.set_page_config(page_title="Mourabaha Portfolio Optimizer", layout="wide")
 
-# --- Title and Header ---
-st.title("📈 Mourabaha Portfolio Optimization Framework")
+# --- App Header ---
+st.title("📈 Mourabaha Portfolio Optimization Dashboard")
 st.markdown("""
-### Participatory Finance & AI Research Project
-This application implements the **Modern Portfolio Theory (MPT)** adapted for **Sharia-compliant** Mourabaha financing assets.
+This application utilizes **Quadratic Programming (SLSQP)** to determine the optimal asset allocation 
+for a Sharia-compliant Mourabaha portfolio, based on historical financial data (2019-2025).
 """)
 
-# --- Sidebar ---
-st.sidebar.header("Project Information")
-st.sidebar.write("**Team:** Soukaina, Asma, Abdelouadoud, Mohammed")
+# --- Sidebar Information ---
+st.sidebar.header("Project Details")
+st.sidebar.write("**Master Program:** Engineering in Participatory Finance and AI")
+st.sidebar.write("**Team Members:** Soukaina, Asma, Abdelouadoud, Mohammed")
 st.sidebar.write("**Supervisor:** Dr. Asmae Faris")
 
-# --- Load Data ---
+# --- Data Loading ---
+# Note: Ensure these CSV files are in the same directory as this script
 @st.cache_data
-def load_data():
-    # Make sure your file is in the same folder
-    df = pd.read_excel('Murabaha_Quadratic_Ready_Data_2019_2025.xlsx')
-    return df
+def load_financial_data():
+    try:
+        mu = pd.read_csv('Murabaha_Expected_Returns.csv', index_col=0)
+        sigma = pd.read_csv('Murabaha_Covariance_Matrix.csv', index_col=0)
+        return mu, sigma
+    except FileNotFoundError:
+        st.error("Error: Please ensure the CSV files are correctly named and uploaded.")
+        return None, None
 
-try:
-    data = load_data()
-    st.success("Data loaded successfully!")
-except Exception as e:
-    st.error(f"Error loading data: {e}")
+mu, sigma = load_financial_data()
 
-# --- Portfolio Optimization Logic ---
-def portfolio_performance(weights, returns, cov_matrix):
-    port_return = np.sum(returns.mean() * weights) * 252
-    port_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights))) * np.sqrt(252)
-    return port_return, port_volatility
+# --- Portfolio Performance Function ---
+def get_portfolio_performance(weights, mu, sigma):
+    """Calculates portfolio returns and risk (volatility)."""
+    returns = np.dot(weights, mu.values.flatten())
+    risk = np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
+    return returns, risk
 
-# Optimization constraint: weights sum to 1
-def negative_sharpe(weights, returns, cov_matrix, risk_free_rate=0.0):
-    p_ret, p_vol = portfolio_performance(weights, returns, cov_matrix)
-    return -(p_ret - risk_free_rate) / p_vol
+# --- Optimization Objective ---
+def objective(weights, mu, sigma):
+    """Objective function: Minimize portfolio risk."""
+    return get_portfolio_performance(weights, mu, sigma)[1]
 
-# --- Main Interface ---
-if st.checkbox("Show Raw Data"):
-    st.write(data.head())
+# --- Main Logic ---
+if mu is not None and sigma is not None:
+    st.subheader("Asset Expected Returns")
+    st.write(mu)
 
-if st.button("Optimize Portfolio"):
-    # Assuming the data has asset columns
-    assets = data.columns[1:] 
-    returns = data[assets].pct_change().dropna()
-    cov_matrix = returns.cov()
-    num_assets = len(assets)
-    
-    # Constraints & Bounds
-    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-    bounds = tuple((0, 1) for asset in range(num_assets))
-    initial_guess = num_assets * [1. / num_assets]
-    
-    # Optimization
-    result = minimize(negative_sharpe, initial_guess, args=(returns, cov_matrix),
-                      method='SLSQP', bounds=bounds, constraints=constraints)
-    
-    optimal_weights = result.x
-    
-    # Visualization
-    st.subheader("Optimal Allocation Results")
-    fig, ax = plt.subplots()
-    sns.barplot(x=assets, y=optimal_weights, ax=ax, palette="viridis")
-    st.pyplot(fig)
-    
-    st.write("Optimal Weights:", dict(zip(assets, np.round(optimal_weights, 4))))
+    if st.button("Run Portfolio Optimization"):
+        num_assets = len(mu)
+        
+        # Constraints: Weights sum to 1
+        constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+        # Bounds: No short-selling (weights between 0 and 1)
+        bounds = tuple((0, 1) for _ in range(num_assets))
+        initial_guess = [1./num_assets] * num_assets
+        
+        # Solving the optimization problem
+        result = minimize(objective, initial_guess, args=(mu, sigma), 
+                          method='SLSQP', bounds=bounds, constraints=constraints)
+        
+        optimal_weights = result.x
+        
+        # Results Display
+        st.subheader("Optimal Portfolio Allocation")
+        results_df = pd.DataFrame({'Asset': mu.index, 'Weight': optimal_weights})
+        
+        # Visualization
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(x='Weight', y='Asset', data=results_df, palette="viridis", ax=ax)
+        st.pyplot(fig)
+        
+        st.write("Allocation Table (Percentage):")
+        results_df['Weight (%)'] = (results_df['Weight'] * 100).round(2)
+        st.write(results_df[['Asset', 'Weight (%)']])
 
 # --- Footer ---
 st.markdown("---")
-st.write("This tool is part of the Master's research in Engineering in Participatory Finance and AI.")
+st.caption("Research conducted under the framework of Participatory Finance and AI Engineering.")
