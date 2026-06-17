@@ -13,9 +13,9 @@ st.title("📈 Mourabaha Portfolio Optimization Dashboard")
 # --- Load Data ---
 @st.cache_data
 def load_data():
-    # Load the renamed files
-    mu = pd.read_csv('mu.csv', index_col=0)
-    sigma = pd.read_csv('sigma.csv', index_col=0)
+    # Using 'latin-1' encoding to handle special characters that caused the UnicodeDecodeError
+    mu = pd.read_csv('mu.csv', index_col=0, encoding='latin-1')
+    sigma = pd.read_csv('sigma.csv', index_col=0, encoding='latin-1')
     return mu, sigma
 
 # --- Main Logic ---
@@ -29,14 +29,16 @@ try:
 
     if st.button("Run Portfolio Optimization"):
         num_assets = len(mu)
-        # Weights constraint: sum to 1
+        
+        # Constraints: Weights sum to 1
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        # Bounds: 0 to 1
+        # Bounds: 0 to 1 (No short selling)
         bounds = tuple((0, 1) for _ in range(num_assets))
         initial_guess = [1./num_assets] * num_assets
         
-        # Objective: Minimize Risk
+        # Optimization: Minimize Portfolio Risk
         def objective(weights):
+            # Portfolio Volatility = sqrt(w.T * Sigma * w)
             return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
         
         result = minimize(objective, initial_guess, method='SLSQP', 
@@ -46,12 +48,16 @@ try:
         st.subheader("Optimal Portfolio Allocation")
         results = pd.DataFrame({'Asset': mu.index, 'Weight': result.x})
         
+        # Chart
         fig, ax = plt.subplots(figsize=(10, 5))
         sns.barplot(x='Weight', y='Asset', data=results, palette="viridis", ax=ax)
         st.pyplot(fig)
         
-        st.write(results)
+        # Table
+        results['Weight (%)'] = (results['Weight'] * 100).round(2)
+        st.write(results[['Asset', 'Weight (%)']])
 
 except Exception as e:
-    st.error("Error: Could not load data. Ensure 'mu.csv' and 'sigma.csv' are in the root folder.")
-    st.write("Technical Error:", e)
+    st.error("Error: Could not load data.")
+    st.write("Ensure 'mu.csv' and 'sigma.csv' are in the main folder and are valid CSV files.")
+    st.write("Technical Error Details:", e)
