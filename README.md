@@ -7,8 +7,8 @@ This research project focuses on the quantitative analysis and optimization of *
 This study is conducted by the 1st-year Master students of **Engineering in Participatory Finance and AI**:
 
 * **Soukaina Hlal**
-* **Asma Daaou**
 * **Abdelouadoud Elkhalfi**
+* **Asma Daaou**
 * **Mohammed Elgharb**
 
 **Supervisor:** Dr. Asmae Faris
@@ -40,7 +40,7 @@ The project follows a rigorous quantitative workflow:
 - `requirements.txt`: List of dependencies for environment setup.
 
 ## 🚀 How to Run
-1. Clone this repository: `git clone [repository_link]`
+1. Clone this repository: ``git clone https://github.com/hlalsoukaina-dev/Murabaha-QP-Portfolio-Optimization.git"
 2. Install dependencies: `pip install -r requirements.txt`
 3. Execute the analysis within the provided Jupyter Notebook.
 
