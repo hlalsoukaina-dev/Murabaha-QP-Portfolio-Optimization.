@@ -2,53 +2,60 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import os
 from scipy.optimize import minimize
 
-# --- Configuration de la page ---
-st.set_page_config(page_title="Optimisation de Portefeuille Mourabaha", layout="wide")
-st.title("📈 Tableau de Bord Mourabaha")
+st.set_page_config(page_title="Mourabaha Portfolio Optimizer", layout="wide")
+st.title("📈 Mourabaha Portfolio Optimization Dashboard")
 
-# --- Chargement des données ---
+# --- Load Data ---
 @st.cache_data
 def load_data():
-    # on_bad_lines='skip' ignore les lignes mal formatées
-    # encoding='latin-1' gère les caractères spéciaux
-    mu = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
-    sigma = pd.read_csv('sigma.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
-    return mu, sigma
-
-# --- Logique de l'application ---
-try:
-    mu, sigma = load_data()
+    # Check if files exist in the current directory
+    current_files = os.listdir('.')
     
-    if st.button("Lancer l'optimisation"):
+    if 'mu.csv' not in current_files or 'sigma.csv' not in current_files:
+        return None, f"Files not found. Files currently in directory: {current_files}"
+    
+    try:
+        mu = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
+        sigma = pd.read_csv('sigma.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
+        return (mu, sigma), None
+    except Exception as e:
+        return None, f"Error reading CSV files: {e}"
+
+# --- Main Logic ---
+result_data, error = load_data()
+
+if error:
+    st.error(error)
+else:
+    mu, sigma = result_data
+    st.success("Data loaded successfully!")
+    
+    if st.button("Run Portfolio Optimization"):
         num_assets = len(mu)
         
-        # Contraintes : Somme des poids égale à 1
+        # Constraints: Weights sum to 1
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        # Bornes : Entre 0 et 1 (Pas de vente à découvert)
+        # Bounds: 0 to 1
         bounds = tuple((0, 1) for _ in range(num_assets))
         initial_guess = [1./num_assets] * num_assets
         
-        # Objectif : Minimiser le risque (volatilité)
+        # Objective: Minimize Risk
         def objective(weights):
             return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
         
-        result = minimize(objective, initial_guess, method='SLSQP', 
+        res = minimize(objective, initial_guess, method='SLSQP', 
                           bounds=bounds, constraints=constraints)
         
-        # Résultats
-        st.subheader("Allocation optimale du portefeuille")
-        results = pd.DataFrame({'Actif': mu.index, 'Poids': result.x})
+        # Results
+        st.subheader("Optimal Portfolio Allocation")
+        results = pd.DataFrame({'Asset': mu.index, 'Weight': res.x})
         
         fig, ax = plt.subplots(figsize=(10, 5))
-        sns.barplot(x='Poids', y='Actif', data=results, palette="viridis", ax=ax)
+        sns.barplot(x='Weight', y='Asset', data=results, palette="viridis", ax=ax)
         st.pyplot(fig)
         
-        results['Poids (%)'] = (results['Poids'] * 100).round(2)
-        st.write(results[['Actif', 'Poids (%)']])
-
-except Exception as e:
-    st.error("Erreur lors du chargement des données.")
-    st.write("Vérifiez que 'mu.csv' et 'sigma.csv' sont dans le dossier racine et bien formés.")
-    st.write("Détails techniques :", e)
+        results['Weight (%)'] = (results['Weight'] * 100).round(2)
+        st.write(results[['Asset', 'Weight (%)']])
