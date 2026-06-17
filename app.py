@@ -25,26 +25,24 @@ st.sidebar.write("**Supervisor:** Dr. Asmae Faris")
 @st.cache_data
 def load_financial_data():
     try:
-        # Loading clean CSV files
-        mu = pd.read_csv('expected_returns.csv', index_col=0)
-        sigma = pd.read_csv('covariance_matrix.csv', index_col=0)
+        # Loading files using the exact names from your GitHub
+        mu = pd.read_csv('Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Expected_Returns_mu.csv', index_col=0)
+        sigma = pd.read_csv('Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Covariance_Matrix_Sigma.csv', index_col=0)
         return mu, sigma
-    except FileNotFoundError:
-        st.error("Error: CSV files not found. Please ensure 'expected_returns.csv' and 'covariance_matrix.csv' are uploaded.")
+    except FileNotFoundError as e:
+        st.error(f"File not found error: {e}. Please ensure the files are in the same folder as app.py")
         return None, None
 
 mu, sigma = load_financial_data()
 
-# --- Portfolio Performance Function ---
+# --- Optimization Functions ---
 def get_portfolio_performance(weights, mu, sigma):
-    """Calculates portfolio returns and risk (volatility)."""
+    # Flatten mu to 1D array for dot product
     returns = np.dot(weights, mu.values.flatten())
     risk = np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
     return returns, risk
 
-# --- Optimization Objective ---
 def objective(weights, mu, sigma):
-    """Objective function: Minimize portfolio risk."""
     return get_portfolio_performance(weights, mu, sigma)[1]
 
 # --- Main Logic ---
@@ -54,20 +52,19 @@ if mu is not None and sigma is not None:
 
     if st.button("Run Portfolio Optimization"):
         num_assets = len(mu)
-        
-        # Constraints: Weights sum to 1
+        # Weights must sum to 1
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        # Bounds: No short-selling (weights between 0 and 1)
+        # Weights must be between 0 and 1
         bounds = tuple((0, 1) for _ in range(num_assets))
         initial_guess = [1./num_assets] * num_assets
         
-        # Solving the optimization problem
+        # Solving
         result = minimize(objective, initial_guess, args=(mu, sigma), 
                           method='SLSQP', bounds=bounds, constraints=constraints)
         
         optimal_weights = result.x
         
-        # Results Display
+        # Display Results
         st.subheader("Optimal Portfolio Allocation")
         results_df = pd.DataFrame({'Asset': mu.index, 'Weight': optimal_weights})
         
