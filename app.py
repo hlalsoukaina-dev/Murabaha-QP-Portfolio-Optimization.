@@ -1,66 +1,50 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import seaborn as sns
 import os
 from scipy.optimize import minimize
 
-# --- Page Configuration ---
-st.set_page_config(page_title="Mourabaha Portfolio Optimizer", layout="wide")
-st.title("📈 Mourabaha Portfolio Optimization Dashboard")
+st.set_page_config(page_title="Mourabaha Optimizer", layout="wide")
+st.title("📈 Mourabaha Portfolio Optimization")
 
-# --- Load Data ---
 @st.cache_data
 def load_data():
-    # Verify files exist before loading
-    if 'mu.csv' not in os.listdir('.') or 'sigma.csv' not in os.listdir('.'):
-        return None, f"Error: Required files 'mu.csv' or 'sigma.csv' are missing. Current files found: {os.listdir('.')}"
+    # كايقلب على الملفات فالمجلد اللي فيه "Expected" و "Covariance"
+    files = os.listdir('.')
+    mu_file = [f for f in files if 'Expected_Returns' in f][0]
+    sigma_file = [f for f in files if 'Covariance_Matrix' in f][0]
     
-    try:
-        mu = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
-        sigma = pd.read_csv('sigma.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
-        return (mu, sigma), None
-    except Exception as e:
-        return None, f"Error reading CSV files: {e}"
-
-# --- Main Application Logic ---
-result_data, error = load_data()
-
-if error:
-    st.error(error)
-else:
-    mu, sigma = result_data
-    st.success("Data loaded successfully!")
+    # تحميل البيانات بأسماء ديناميكية
+    mu = pd.read_csv(mu_file, index_col=0, encoding='latin-1')
+    sigma = pd.read_csv(sigma_file, index_col=0, encoding='latin-1')
     
-    if st.button("Run Portfolio Optimization"):
-        try:
-            num_assets = len(mu)
-            
-            # Constraints: Weights sum to 1
-            constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-            # Bounds: 0 to 1
-            bounds = tuple((0, 1) for _ in range(num_assets))
-            initial_guess = [1./num_assets] * num_assets
-            
-            # Optimization Objective: Minimize Portfolio Risk
-            def objective(weights):
-                return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
-            
-            res = minimize(objective, initial_guess, method='SLSQP', 
-                              bounds=bounds, constraints=constraints)
-            
-            # Display Results
-            st.subheader("Optimal Portfolio Allocation")
-            results = pd.DataFrame({'Asset': mu.index, 'Weight': res.x})
-            
-            # Chart
-            fig, ax = plt.subplots(figsize=(10, 5))
-            sns.barplot(x='Weight', y='Asset', data=results, palette="viridis", ax=ax)
-            st.pyplot(fig)
-            
-            # Table
-            results['Weight (%)'] = (results['Weight'] * 100).round(2)
-            st.write(results[['Asset', 'Weight (%)']])
-            
-        except Exception as e:
-            st.error(f"Optimization failed: {e}")
+    return mu, sigma
+
+try:
+    mu, sigma = load_data()
+    st.success("Données chargées avec succès !")
+    
+    if st.button("Run Optimization"):
+        # تنظيف المصفوفة: ناخدو غير البيانات الرقمية
+        sigma_matrix = sigma.select_dtypes(include=[np.number])
+        # تنبيه: خصنا نتأكدو أن mu هي سيريز (Series)
+        mu_values = mu['mu_annualise'] 
+        
+        num_assets = len(mu)
+        constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+        bounds = tuple((0, 1) for _ in range(num_assets))
+        initial_guess = [1./num_assets] * num_assets
+        
+        def objective(weights):
+            return np.sqrt(np.dot(weights.T, np.dot(sigma_matrix.values, weights)))
+        
+        res = minimize(objective, initial_guess, method='SLSQP', 
+                          bounds=bounds, constraints=constraints)
+        
+        st.subheader("Optimal Portfolio Allocation")
+        results = pd.DataFrame({'Asset': mu.index, 'Weight': res.x})
+        st.bar_chart(results.set_index('Asset'))
+        st.write(results)
+
+except Exception as e:
+    st.error(f"Erreur de chargement: {e}")
