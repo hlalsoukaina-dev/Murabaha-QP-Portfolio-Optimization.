@@ -1,50 +1,48 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
 from scipy.optimize import minimize
 
-st.set_page_config(page_title="Mourabaha Optimizer", layout="wide")
-st.title("📈 Mourabaha Portfolio Optimization")
+st.set_page_config(page_title="Mourabaha QP Optimizer", layout="wide")
+st.title("📈 Murabaha Portfolio Optimization Framework")
 
 @st.cache_data
 def load_data():
-    # كايقلب على الملفات فالمجلد اللي فيه "Expected" و "Covariance"
-    files = os.listdir('.')
-    mu_file = [f for f in files if 'Expected_Returns' in f][0]
-    sigma_file = [f for f in files if 'Covariance_Matrix' in f][0]
+    # المسارات الدقيقة بناءً على ملفاتك
+    mu_file = 'Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Expected_Returns_mu.csv'
+    sigma_file = 'Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Covariance_Matrix_Sigma.csv'
     
-    # تحميل البيانات بأسماء ديناميكية
-    mu = pd.read_csv(mu_file, index_col=0, encoding='latin-1')
-    sigma = pd.read_csv(sigma_file, index_col=0, encoding='latin-1')
+    mu_df = pd.read_csv(mu_file, index_col=0)
+    sigma_df = pd.read_csv(sigma_file, index_col=0)
     
-    return mu, sigma
+    return mu_df, sigma_df
 
 try:
-    mu, sigma = load_data()
-    st.success("Données chargées avec succès !")
+    mu_df, sigma_df = load_data()
     
-    if st.button("Run Optimization"):
-        # تنظيف المصفوفة: ناخدو غير البيانات الرقمية
-        sigma_matrix = sigma.select_dtypes(include=[np.number])
-        # تنبيه: خصنا نتأكدو أن mu هي سيريز (Series)
-        mu_values = mu['mu_annualise'] 
+    # تحضير البيانات للمعادلة الرياضية
+    returns = mu_df['mu_annuel_%'] / 100  # تحويل النسبة المئوية لكسر عشري
+    cov_matrix = sigma_df.values
+    assets = mu_df.index
+    
+    if st.button("🚀 Run Portfolio Optimization"):
+        n = len(returns)
         
-        num_assets = len(mu)
-        constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        bounds = tuple((0, 1) for _ in range(num_assets))
-        initial_guess = [1./num_assets] * num_assets
+        # دالة الهدف: Minimizing Portfolio Variance (xT * Σ * x)
+        def objective(x):
+            return np.dot(x.T, np.dot(cov_matrix, x))
+            
+        # القيود: مجموع الأوزان = 1، والأوزان موجبة [0, 1]
+        cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+        bnds = tuple((0, 1) for _ in range(n))
         
-        def objective(weights):
-            return np.sqrt(np.dot(weights.T, np.dot(sigma_matrix.values, weights)))
+        result = minimize(objective, [1/n]*n, method='SLSQP', bounds=bnds, constraints=cons)
         
-        res = minimize(objective, initial_guess, method='SLSQP', 
-                          bounds=bounds, constraints=constraints)
+        # العرض
+        st.subheader("Optimal Asset Allocation")
+        res_df = pd.DataFrame({'Sector': assets, 'Optimal Weight (%)': (result.x * 100).round(2)})
+        st.bar_chart(res_df.set_index('Sector'))
+        st.table(res_df)
         
-        st.subheader("Optimal Portfolio Allocation")
-        results = pd.DataFrame({'Asset': mu.index, 'Weight': res.x})
-        st.bar_chart(results.set_index('Asset'))
-        st.write(results)
-
 except Exception as e:
-    st.error(f"Erreur de chargement: {e}")
+    st.error(f"Error: {e}")
