@@ -1,25 +1,48 @@
-# Mourabaha Portfolio Optimization
+# Mourabaha Portfolio Optimization: A Data-Driven Approach
 
-## 📝 Description
-Ce projet constitue un cadre méthodologique pour l'optimisation de portefeuille d'actifs **Mourabaha** (finance participative) au Maroc sur la période 2019-2025. Il applique la théorie moderne du portefeuille (Markowitz) en intégrant les contraintes spécifiques de conformité à la Charia.
+## 📖 Project Overview
+This research project focuses on the quantitative analysis and optimization of **Mourabaha** financing portfolios within the Moroccan banking sector. By leveraging historical data from 2019 to 2025, we aim to design a portfolio allocation model that maximizes returns while strictly adhering to the fundamental principles of **Islamic Finance** (Sharia-compliance), such as the prohibition of speculative practices (Gharar) and interest-based transactions (Riba).
 
-## 👥 Équipe de recherche
-Projet réalisé par les étudiants de la 1ère année Master **Ingénierie de la Finance Participative et l'IA** :
-- **Soukaina Hlal**
-- **Asma Daaou**
-- **Abdelouadoud Elkhalfi**
-- **Mohammed Elgharb**
+## 👥 Research Team
+This study is conducted by the 1st-year Master students of **Engineering in Participatory Finance and AI**:
 
-**Encadré par :** [Dr.Asmae Faris]
+* **Soukaina Hlal**
+* **Asma Daaou**
+* **Abdelouadoud Elkhalfi**
+* **Mohammed Elgharb**
 
-## 🏗 Méthodologie
-1. **Prétraitement :** Nettoyage et Winsorization des données pour atténuer les valeurs aberrantes.
-2. **Modélisation :** Utilisation de l'algorithme d'optimisation sous contraintes **SLSQP** (Sequential Least Squares Programming).
-3. **Analyse :** Évaluation des poids optimaux permettant de maximiser le rendement sous contrainte de non-négativité ($\sum w_i = 1$).
+**Supervisor:** Dr. Asmae Faris
 
-## 🛠 Prérequis
-Ce projet nécessite les bibliothèques suivantes :
-- `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`
+## 🎯 Objectives
+- To evaluate the performance of different Mourabaha asset classes (Real Estate, Automotive, Equipment, and Commodities).
+- To apply the **Modern Portfolio Theory (MPT)** framework adapted for the specific constraints of Participatory Finance.
+- To demonstrate how Artificial Intelligence and statistical modeling can improve decision-making in Islamic banking.
+
+## 🏗 Methodology
+The project follows a rigorous quantitative workflow:
+1.  **Data Preprocessing:** Cleaning and structuring raw financial datasets. We apply **Winsorization** (1%-99% quantiles) to handle extreme outliers and ensure model stability.
+2.  **Portfolio Optimization:** Utilizing the **SLSQP (Sequential Least Squares Programming)** algorithm to solve the quadratic optimization problem.
+3.  **Constraints Implementation:** The model enforces:
+    * **Non-negativity constraint:** No short-selling allowed ($w_i \ge 0$).
+    * **Budget constraint:** Total allocation must equal 100% ($\sum w_i = 1$).
+4.  **Performance Metrics:** Calculation of expected returns, volatility, and Sharpe ratios to derive the efficient frontier.
+
+## 🛠 Technical Stack
+- **Language:** Python
+- **Key Libraries:**
+    - `Pandas` & `Numpy`: Data manipulation and numerical computation.
+    - `Scipy.optimize`: Mathematical optimization algorithms.
+    - `Matplotlib` & `Seaborn`: Statistical data visualization.
+
+## 📂 Project Structure
+- `Murabaha_QP_Framework_2019_2025_v2.ipynb`: Main Jupyter Notebook containing the full code, analysis, and visual outputs.
+- `Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx`: The processed dataset used for simulations.
+- `requirements.txt`: List of dependencies for environment setup.
+
+## 🚀 How to Run
+1. Clone this repository: `git clone [repository_link]`
+2. Install dependencies: `pip install -r requirements.txt`
+3. Execute the analysis within the provided Jupyter Notebook.
 
 ---
-*Ce dépôt est une documentation technique accompagnant les travaux de recherche du Master Ingénierie de la Finance Participative et l'IA.*
+*This repository serves as technical documentation accompanying the research work for the Master's degree in Engineering in Participatory Finance and AI.*
