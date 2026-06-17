@@ -24,43 +24,46 @@ st.sidebar.write("**Supervisor:** Dr. Asmae Faris")
 # --- Data Loading ---
 @st.cache_data
 def load_financial_data():
+    # Using the exact filenames present in your GitHub repository
+    file_mu = 'Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Expected_Returns_mu.csv'
+    file_sigma = 'Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Covariance_Matrix_Sigma.csv'
+    
     try:
-        # Loading files using the exact names from your GitHub
-        mu = pd.read_csv('Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Expected_Returns_mu.csv', index_col=0)
-        sigma = pd.read_csv('Murabaha_Quadratic_Ready_Data_2019_2025 (1).xlsx - Covariance_Matrix_Sigma.csv', index_col=0)
+        # Loading CSV files
+        mu = pd.read_csv(file_mu, index_col=0)
+        sigma = pd.read_csv(file_sigma, index_col=0)
         return mu, sigma
-    except FileNotFoundError as e:
-        st.error(f"File not found error: {e}. Please ensure the files are in the same folder as app.py")
+    except FileNotFoundError:
+        st.error(f"Error: Could not find '{file_mu}' or '{file_sigma}'. "
+                 "Please ensure these files are in the same directory as app.py in your GitHub repository.")
         return None, None
 
 mu, sigma = load_financial_data()
 
-# --- Optimization Functions ---
-def get_portfolio_performance(weights, mu, sigma):
-    # Flatten mu to 1D array for dot product
-    returns = np.dot(weights, mu.values.flatten())
-    risk = np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
-    return returns, risk
-
-def objective(weights, mu, sigma):
-    return get_portfolio_performance(weights, mu, sigma)[1]
-
-# --- Main Logic ---
+# --- Logic ---
 if mu is not None and sigma is not None:
     st.subheader("Asset Expected Returns")
     st.write(mu)
 
     if st.button("Run Portfolio Optimization"):
+        # We assume the index of 'mu' contains the asset names
         num_assets = len(mu)
-        # Weights must sum to 1
+        
+        # Optimization Constraints: Weights sum to 1
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        # Weights must be between 0 and 1
+        
+        # Optimization Bounds: No short-selling (0 to 1)
         bounds = tuple((0, 1) for _ in range(num_assets))
         initial_guess = [1./num_assets] * num_assets
         
+        # Objective Function: Minimize Portfolio Risk (Volatility)
+        # Using the covariance matrix 'sigma'
+        def objective(weights):
+            return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
+        
         # Solving
-        result = minimize(objective, initial_guess, args=(mu, sigma), 
-                          method='SLSQP', bounds=bounds, constraints=constraints)
+        result = minimize(objective, initial_guess, method='SLSQP', 
+                          bounds=bounds, constraints=constraints)
         
         optimal_weights = result.x
         
@@ -69,11 +72,11 @@ if mu is not None and sigma is not None:
         results_df = pd.DataFrame({'Asset': mu.index, 'Weight': optimal_weights})
         
         # Visualization
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(10, 5))
         sns.barplot(x='Weight', y='Asset', data=results_df, palette="viridis", ax=ax)
         st.pyplot(fig)
         
-        st.write("Allocation Table (Percentage):")
+        # Table of results
         results_df['Weight (%)'] = (results_df['Weight'] * 100).round(2)
         st.write(results_df[['Asset', 'Weight (%)']])
 
