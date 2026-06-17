@@ -22,15 +22,15 @@ st.sidebar.write("**Team Members:** Soukaina, Asma, Abdelouadoud, Mohammed")
 st.sidebar.write("**Supervisor:** Dr. Asmae Faris")
 
 # --- Data Loading ---
-# Note: Ensure these CSV files are in the same directory as this script
 @st.cache_data
 def load_financial_data():
     try:
-        mu = pd.read_csv('Murabaha_Expected_Returns.csv', index_col=0)
-        sigma = pd.read_csv('Murabaha_Covariance_Matrix.csv', index_col=0)
+        # Loading clean CSV files
+        mu = pd.read_csv('expected_returns.csv', index_col=0)
+        sigma = pd.read_csv('covariance_matrix.csv', index_col=0)
         return mu, sigma
     except FileNotFoundError:
-        st.error("Error: Please ensure the CSV files are correctly named and uploaded.")
+        st.error("Error: CSV files not found. Please ensure 'expected_returns.csv' and 'covariance_matrix.csv' are uploaded.")
         return None, None
 
 mu, sigma = load_financial_data()
