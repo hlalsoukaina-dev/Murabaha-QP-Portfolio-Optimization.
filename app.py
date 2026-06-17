@@ -2,62 +2,53 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import seaborn as sns
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
-# --- Page Configuration ---
-st.set_page_config(page_title="Mourabaha Portfolio Optimizer", layout="wide")
+# --- Configuration de la page ---
+st.set_page_config(page_title="Optimisation de Portefeuille Mourabaha", layout="wide")
+st.title("📈 Tableau de Bord Mourabaha")
 
-st.title("📈 Mourabaha Portfolio Optimization Dashboard")
-
-# --- Load Data ---
+# --- Chargement des données ---
 @st.cache_data
 def load_data():
-    # Using 'latin-1' encoding to handle special characters that caused the UnicodeDecodeError
-    mu = pd.read_csv('mu.csv', index_col=0, encoding='latin-1')
-    sigma = pd.read_csv('sigma.csv', index_col=0, encoding='latin-1')
+    # on_bad_lines='skip' ignore les lignes mal formatées
+    # encoding='latin-1' gère les caractères spéciaux
+    mu = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
+    sigma = pd.read_csv('sigma.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
     return mu, sigma
 
-# --- Main Logic ---
+# --- Logique de l'application ---
 try:
     mu, sigma = load_data()
     
-    st.sidebar.header("Project Details")
-    st.sidebar.write("**Master Program:** Engineering in Participatory Finance and AI")
-    st.sidebar.write("**Team Members:** Soukaina, Asma, Abdelouadoud, Mohammed")
-    st.sidebar.write("**Supervisor:** Dr. Asmae Faris")
-
-    if st.button("Run Portfolio Optimization"):
+    if st.button("Lancer l'optimisation"):
         num_assets = len(mu)
         
-        # Constraints: Weights sum to 1
+        # Contraintes : Somme des poids égale à 1
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        # Bounds: 0 to 1 (No short selling)
+        # Bornes : Entre 0 et 1 (Pas de vente à découvert)
         bounds = tuple((0, 1) for _ in range(num_assets))
         initial_guess = [1./num_assets] * num_assets
         
-        # Optimization: Minimize Portfolio Risk
+        # Objectif : Minimiser le risque (volatilité)
         def objective(weights):
-            # Portfolio Volatility = sqrt(w.T * Sigma * w)
             return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
         
         result = minimize(objective, initial_guess, method='SLSQP', 
                           bounds=bounds, constraints=constraints)
         
-        # Display Results
-        st.subheader("Optimal Portfolio Allocation")
-        results = pd.DataFrame({'Asset': mu.index, 'Weight': result.x})
+        # Résultats
+        st.subheader("Allocation optimale du portefeuille")
+        results = pd.DataFrame({'Actif': mu.index, 'Poids': result.x})
         
-        # Chart
         fig, ax = plt.subplots(figsize=(10, 5))
-        sns.barplot(x='Weight', y='Asset', data=results, palette="viridis", ax=ax)
+        sns.barplot(x='Poids', y='Actif', data=results, palette="viridis", ax=ax)
         st.pyplot(fig)
         
-        # Table
-        results['Weight (%)'] = (results['Weight'] * 100).round(2)
-        st.write(results[['Asset', 'Weight (%)']])
+        results['Poids (%)'] = (results['Poids'] * 100).round(2)
+        st.write(results[['Actif', 'Poids (%)']])
 
 except Exception as e:
-    st.error("Error: Could not load data.")
-    st.write("Ensure 'mu.csv' and 'sigma.csv' are in the main folder and are valid CSV files.")
-    st.write("Technical Error Details:", e)
+    st.error("Erreur lors du chargement des données.")
+    st.write("Vérifiez que 'mu.csv' et 'sigma.csv' sont dans le dossier racine et bien formés.")
+    st.write("Détails techniques :", e)
