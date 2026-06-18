@@ -3,36 +3,52 @@ import pandas as pd
 import numpy as np
 from scipy.optimize import minimize
 
-st.title("📈 Mourabaha Portfolio Optimization")
+st.set_page_config(page_title="Mourabaha QP Optimizer", layout="wide")
+st.title("📈 Mourabaha Portfolio Optimization Framework")
 
 @st.cache_data
-def load_and_process_data():
-    df = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', on_bad_lines='skip', engine='python')
+def process_data():
+    # قراءة البيانات مع ضمان التعامل مع القيم المفقودة
+    df = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', engine='python')
+    
+    # تحويل البيانات إلى تنسيق رقمي نظيف (تجاهل الأعمدة غير الرقمية)
     numeric_df = df.select_dtypes(include=[np.number])
     
-    # تنظيف البيانات من الأصفار والـ NaN
-    numeric_df = numeric_df.replace([np.inf, -np.inf], np.nan).fillna(0)
+    # ملء القيم الفارغة بـ 0 (كما في التقرير) ثم إضافة "ضجيج" تقني صغير جداً
+    # لمنع الـ division by zero
+    numeric_df = numeric_df.fillna(0) + 1e-9 
     
     mu = numeric_df.mean()
-    # استخدام مصفوفة ارتباط مع إضافة 'noise' صغيرة جداً لضمان القابلية للحل
-    sigma = numeric_df.corr().fillna(0) + np.eye(len(numeric_df.columns)) * 0.01
+    sigma = numeric_df.cov()
     
     return mu, sigma
 
 try:
-    mu, sigma = load_and_process_data()
-    st.success("Données chargées !")
+    mu, sigma = process_data()
+    st.success("Données chargées et traitées avec succès !")
 
-    if st.button("Lancer Optimisation"):
+    if st.button("Lancer Optimisation QP"):
         n = len(mu)
-        # إجبار الكود على توزيع الأوزان بشكل متساوي إذا فشلت الرياضيات المعقدة
-        # هذا يمنع أي خطأ في الـ Minimization
-        weights = np.array([1/n] * n)
         
-        st.subheader("Répartition Optimale (Quadratic Programming)")
-        results = pd.DataFrame({'Secteur': mu.index, 'Poids (%)': (weights * 100).round(2)})
-        st.bar_chart(results.set_index('Secteur'))
-        st.table(results)
+        # دالة الهدف: تباين المحفظة (Portfolio Variance)
+        def objective(weights):
+            return np.dot(weights.T, np.dot(sigma.values, weights))
+        
+        # القيود: مجموع الأوزان = 1، والأوزان موجبة
+        constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+        bounds = tuple((0, 1) for _ in range(n))
+        
+        # استخدام خوارزمية تحسين أكثر استقراراً
+        res = minimize(objective, [1/n]*n, method='SLSQP', 
+                       bounds=bounds, constraints=constraints)
+        
+        if res.success:
+            st.subheader("Allocation Optimale des Actifs")
+            res_df = pd.DataFrame({'Secteur': mu.index, 'Poids (%)': (res.x * 100).round(2)})
+            st.bar_chart(res_df.set_index('Secteur'))
+            st.table(res_df)
+        else:
+            st.error("L'optimiseur n'a pas pu converger. Vérifiez la structure de votre matrice Σ.")
 
 except Exception as e:
-    st.error(f"Erreur technique : {e}")
+    st.error(f"Erreur technique (QP Framework): {e}")
