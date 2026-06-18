@@ -8,15 +8,11 @@ st.title("📈 Murabaha Portfolio Optimization")
 
 @st.cache_data
 def load_and_process_data():
-    # 1. تحميل البيانات اللي عندك (mu.csv)
-    # ملاحظة: تأكدي أن mu.csv فيه أعمدة فيها أسعار أو عوائد باش نحسبو sigma
-    df = pd.read_csv('mu.csv', index_col=0)
+    # هنا استخدمنا 'latin-1' لحل مشكلة الترميز
+    df = pd.read_csv('mu.csv', index_col=0, encoding='latin-1')
     
-    # 2. حساب المصفوفة Sigma (Covariance Matrix) أوتوماتيكياً من البيانات
-    # هاد الكود كياخد الأعمدة الرقمية وكيحسب العلاقة بيناتها
+    # حساب المصفوفة Sigma أوتوماتيكياً
     sigma = df.select_dtypes(include=[np.number]).cov()
-    
-    # 3. العوائد المتوقعة (المتوسط ديال كل عمود)
     mu = df.select_dtypes(include=[np.number]).mean()
     
     return mu, sigma
@@ -27,8 +23,6 @@ try:
     
     if st.button("Run Portfolio Optimization"):
         n = len(mu)
-        
-        # Optimization
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
         bounds = tuple((0, 1) for _ in range(n))
         
