@@ -8,14 +8,22 @@ st.title("📈 Murabaha Portfolio Optimization")
 
 @st.cache_data
 def load_and_process_data():
-    # الحل: استخدام on_bad_lines='skip' لتجاهل الأسطر التالفة
-    # واستخدام engine='python' لأنها أذكى في قراءة ملفات CSV غير المنتظمة
+    # قراءة الملف مع تنظيف الأسطر الخاطئة
     df = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', 
                      on_bad_lines='skip', engine='python')
     
-    # حساب المصفوفة Sigma أوتوماتيكياً
-    sigma = df.select_dtypes(include=[np.number]).cov()
-    mu = df.select_dtypes(include=[np.number]).mean()
+    # اختيار البيانات الرقمية فقط
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    # تنظيف البيانات: استبدال القيم الفارغة (NaN) أو اللانهائية بـ 0
+    numeric_df = numeric_df.replace([np.inf, -np.inf], np.nan).fillna(0)
+    
+    # حساب المتوسط (mu) والمصفوفة (sigma)
+    mu = numeric_df.mean()
+    sigma = numeric_df.cov()
+    
+    # حماية إضافية: إذا كانت مصفوفة التباين بها أصفار، نضع قيمة صغيرة جداً لتجنب القسمة على صفر
+    sigma = sigma + np.eye(len(sigma)) * 1e-6
     
     return mu, sigma
 
@@ -28,12 +36,10 @@ try:
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
         bounds = tuple((0, 1) for _ in range(n))
         
-        # التأكد من عدم وجود قيم NaN في المصفوفة
-        sigma = sigma.fillna(0)
-        
         def objective(weights):
             return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
             
+        # استخدام قيمة أولية متساوية
         res = minimize(objective, [1./n]*n, method='SLSQP', bounds=bounds, constraints=constraints)
         
         st.subheader("Optimal Portfolio Allocation")
@@ -42,4 +48,4 @@ try:
         st.write(results)
 
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Error: {e}. Check if 'mu.csv' contains valid numeric columns.")
