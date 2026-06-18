@@ -1,56 +1,46 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
 from scipy.optimize import minimize
 
-st.set_page_config(page_title="Mourabaha QP Optimizer", layout="wide")
-st.title("📈 Murabaha Portfolio Optimization Framework")
+st.set_page_config(page_title="Mourabaha Optimizer", layout="wide")
+st.title("📈 Murabaha Portfolio Optimization")
 
 @st.cache_data
-def load_data():
-    # البحث عن الملفات في المجلد الحالي بناءً على كلمات مفتاحية
-    files = os.listdir('.')
+def load_and_process_data():
+    # 1. تحميل البيانات اللي عندك (mu.csv)
+    # ملاحظة: تأكدي أن mu.csv فيه أعمدة فيها أسعار أو عوائد باش نحسبو sigma
+    df = pd.read_csv('mu.csv', index_col=0)
     
-    # البحث عن ملف mu و sigma
-    mu_file = [f for f in files if 'Expected_Returns_mu' in f]
-    sigma_file = [f for f in files if 'Covariance_Matrix_Sigma' in f]
+    # 2. حساب المصفوفة Sigma (Covariance Matrix) أوتوماتيكياً من البيانات
+    # هاد الكود كياخد الأعمدة الرقمية وكيحسب العلاقة بيناتها
+    sigma = df.select_dtypes(include=[np.number]).cov()
     
-    if not mu_file or not sigma_file:
-        return None, f"Files not found! Directory contains: {files}"
+    # 3. العوائد المتوقعة (المتوسط ديال كل عمود)
+    mu = df.select_dtypes(include=[np.number]).mean()
     
-    # تحميل البيانات
-    mu_df = pd.read_csv(mu_file[0], index_col=0)
-    sigma_df = pd.read_csv(sigma_file[0], index_col=0)
-    
-    return (mu_df, sigma_df), None
+    return mu, sigma
 
-# --- تنفيذ الكود ---
-data, error = load_data()
+try:
+    mu, sigma = load_and_process_data()
+    st.success("Data processed successfully!")
+    
+    if st.button("Run Portfolio Optimization"):
+        n = len(mu)
+        
+        # Optimization
+        constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+        bounds = tuple((0, 1) for _ in range(n))
+        
+        def objective(weights):
+            return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
+            
+        res = minimize(objective, [1./n]*n, method='SLSQP', bounds=bounds, constraints=constraints)
+        
+        st.subheader("Optimal Portfolio Allocation")
+        results = pd.DataFrame({'Asset': mu.index, 'Weight (%)': (res.x * 100).round(2)})
+        st.bar_chart(results.set_index('Asset'))
+        st.write(results)
 
-if error:
-    st.error(error)
-else:
-    mu_df, sigma_df = data
-    
-    # تحضير البيانات
-    returns = mu_df['mu_annuel_%'] / 100
-    cov_matrix = sigma_df.values
-    
-    if st.button("🚀 Run Portfolio Optimization"):
-        try:
-            n = len(returns)
-            def objective(x):
-                return np.dot(x.T, np.dot(cov_matrix, x))
-            
-            cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-            bnds = tuple((0, 1) for _ in range(n))
-            
-            result = minimize(objective, [1/n]*n, method='SLSQP', bounds=bnds, constraints=cons)
-            
-            st.subheader("Optimal Asset Allocation")
-            res_df = pd.DataFrame({'Sector': mu_df.index, 'Weight (%)': (result.x * 100).round(2)})
-            st.bar_chart(res_df.set_index('Sector'))
-            st.table(res_df)
-        except Exception as e:
-            st.error(f"Optimization Error: {e}")
+except Exception as e:
+    st.error(f"Error: {e}")
