@@ -8,8 +8,10 @@ st.title("📈 Murabaha Portfolio Optimization")
 
 @st.cache_data
 def load_and_process_data():
-    # هنا استخدمنا 'latin-1' لحل مشكلة الترميز
-    df = pd.read_csv('mu.csv', index_col=0, encoding='latin-1')
+    # الحل: استخدام on_bad_lines='skip' لتجاهل الأسطر التالفة
+    # واستخدام engine='python' لأنها أذكى في قراءة ملفات CSV غير المنتظمة
+    df = pd.read_csv('mu.csv', index_col=0, encoding='latin-1', 
+                     on_bad_lines='skip', engine='python')
     
     # حساب المصفوفة Sigma أوتوماتيكياً
     sigma = df.select_dtypes(include=[np.number]).cov()
@@ -25,6 +27,9 @@ try:
         n = len(mu)
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
         bounds = tuple((0, 1) for _ in range(n))
+        
+        # التأكد من عدم وجود قيم NaN في المصفوفة
+        sigma = sigma.fillna(0)
         
         def objective(weights):
             return np.sqrt(np.dot(weights.T, np.dot(sigma.values, weights)))
